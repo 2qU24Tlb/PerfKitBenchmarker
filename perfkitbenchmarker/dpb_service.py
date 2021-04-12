@@ -22,7 +22,6 @@ the corresponding provider directory as a subclass of BaseDpbService.
 import abc
 import datetime
 import logging
-import posixpath
 from typing import Dict, List, Optional
 
 from absl import flags
@@ -32,6 +31,10 @@ from perfkitbenchmarker import resource
 from perfkitbenchmarker import vm_util
 from perfkitbenchmarker.linux_packages import hadoop
 from perfkitbenchmarker.linux_packages import spark
+from perfkitbenchmarker.providers.aws import s3
+from perfkitbenchmarker.providers.aws import util as aws_util
+from perfkitbenchmarker.providers.gcp import gcs
+from perfkitbenchmarker.providers.gcp import util as gcp_util
 
 flags.DEFINE_string(
     'static_dpb_service_instance', None,
@@ -46,6 +49,11 @@ flags.DEFINE_string('dpb_service_zone', None, 'The zone for provisioning the '
                     'dpb_service instance.')
 flags.DEFINE_list('dpb_job_properties', [], 'A list of strings of the form '
                   '"key=vale" to be passed into DBP jobs.')
+flags.DEFINE_list(
+    'dpb_cluster_properties', [], 'A list of strings of the form '
+    '"type:key=value" to be passed into DBP clusters. See '
+    'https://cloud.google.com/dataproc/docs/concepts/configuring-clusters/cluster-properties.'
+)
 
 
 FLAGS = flags.FLAGS
@@ -151,10 +159,15 @@ class BaseDpbService(resource.BaseResource):
       self.cluster_id = dpb_service_spec.static_dpb_service_instance
     else:
       self.cluster_id = 'pkb-' + FLAGS.run_uri
+    self.bucket = 'pkb-' + FLAGS.run_uri
     self.dpb_service_zone = FLAGS.dpb_service_zone
     self.dpb_version = dpb_service_spec.version
     self.dpb_service_type = 'unknown'
     self.storage_service = None
+
+  @property
+  def base_dir(self):
+    return self.persistent_fs_prefix + self.bucket
 
   @abc.abstractmethod
   def SubmitJob(self,
@@ -229,6 +242,29 @@ class BaseDpbService(resource.BaseResource):
     raise NotImplementedError('You need to implement _GetCompletedJob if you '
                               'use _WaitForJob')
 
+  def DistributedCopy(self,
+                      source: str,
+                      destination: str,
+                      properties: Optional[Dict[str, str]] = None) -> JobResult:
+    """Method to copy data using a distributed job on the cluster.
+
+    Args:
+      source: HCFS directory to copy data from.
+      destination: name of new HCFS directory to copy data into.
+      properties: properties to add to the job. Not supported on EMR.
+
+    Returns:
+      A JobResult with the timing of the successful job.
+
+    Raises:
+      JobSubmissionError if job fails.
+    """
+    return self.SubmitJob(
+        classname='org.apache.hadoop.tools.DistCp',
+        job_arguments=[source, destination],
+        job_type=BaseDpbService.HADOOP_JOB_TYPE,
+        properties=properties)
+
   def GetMetadata(self):
     """Return a dictionary of the metadata for this cluster."""
     pretty_version = self.dpb_version or 'default'
@@ -244,12 +280,21 @@ class BaseDpbService(resource.BaseResource):
         'dpb_service_zone': self.dpb_service_zone,
         'dpb_job_properties': ','.join(
             '{}={}'.format(k, v) for k, v in self.GetJobProperties().items()),
+        'dpb_cluster_properties': ','.join(FLAGS.dpb_cluster_properties),
     }
     return basic_data
+
+  def _CreateDependencies(self):
+    """Creates a bucket to use with the cluster."""
+    self.storage_service.MakeBucket(self.bucket)
 
   def _Create(self):
     """Creates the underlying resource."""
     raise NotImplementedError()
+
+  def _DeleteDependencies(self):
+    """Deletes the bucket used with the cluster."""
+    self.storage_service.DeleteBucket(self.bucket)
 
   def _Delete(self):
     """Deletes the underlying resource.
@@ -303,41 +348,30 @@ class BaseDpbService(resource.BaseResource):
 
     return self.JOB_JARS[job_category][job_type]
 
-  def CreateBucket(self, source_bucket):
-    """Creates an object-store bucket used during persistent data processing.
-
-    Args:
-      source_bucket: String, name of the bucket to create.
-    """
-    self.storage_service.MakeBucket(source_bucket)
-
-  def DeleteBucket(self, source_bucket):
-    """Deletes an object-store bucket used during persistent data processing.
-
-    Args:
-      source_bucket: String, name of the bucket to delete.
-    """
-    self.storage_service.DeleteBucket(source_bucket)
-
 
 class UnmanagedDpbService(BaseDpbService):
   """Object representing an un-managed dpb service."""
 
-  @abc.abstractmethod
-  def SubmitJob(self,
-                jarfile=None,
-                classname=None,
-                pyspark_file=None,
-                query_file=None,
-                job_poll_interval=None,
-                job_stdout_file=None,
-                job_arguments=None,
-                job_files=None,
-                job_jars=None,
-                job_type=None,
-                properties=None):
-    """Submit a data processing job to the backend."""
-    pass
+  def __init__(self, dpb_service_spec):
+    super(UnmanagedDpbService, self).__init__(dpb_service_spec)
+    #  Dictionary to hold the cluster vms.
+    self.vms = {}
+    self.cloud = dpb_service_spec.worker_group.cloud
+    if not self.dpb_service_zone:
+      raise errors.Setup.InvalidSetupError(
+          'dpb_service_zone must be provided, for provisioning.')
+    self.storage_service = None
+    if self.cloud == 'GCP':
+      self.region = gcp_util.GetRegionFromZone(FLAGS.dpb_service_zone)
+      self.storage_service = gcs.GoogleCloudStorageService()
+      self.persistent_fs_prefix = 'gs://'
+    elif self.cloud == 'AWS':
+      self.region = aws_util.GetRegionFromZone(FLAGS.dpb_service_zone)
+      self.storage_service = s3.S3Service()
+      self.persistent_fs_prefix = 's3://'
+
+    if self.storage_service:
+      self.storage_service.PrepareService(location=self.region)
 
 
 class UnmanagedDpbServiceYarnCluster(UnmanagedDpbService):
@@ -354,10 +388,9 @@ class UnmanagedDpbServiceYarnCluster(UnmanagedDpbService):
   def __init__(self, dpb_service_spec):
     super(UnmanagedDpbServiceYarnCluster, self).__init__(dpb_service_spec)
     #  Dictionary to hold the cluster vms.
-    self.vms = {}
     self.dpb_service_type = UNMANAGED_DPB_SVC_YARN_CLUSTER
     # Set DPB version as Hadoop version for metadata
-    self.dpb_version = 'hadoop_' + FLAGS.hadoop_version
+    self.cloud = dpb_service_spec.worker_group.cloud
 
   def _Create(self):
     """Create an un-managed yarn cluster."""
@@ -366,12 +399,16 @@ class UnmanagedDpbServiceYarnCluster(UnmanagedDpbService):
 
     def InstallHadoop(vm):
       vm.Install('hadoop')
+      if self.cloud == 'GCP':
+        hadoop.InstallGcsConnector(vm)
+      if self.cloud == 'AWS':
+        hadoop.InstallS3Connector(vm)
 
-    vm_util.RunThreaded(InstallHadoop, self.vms['worker_group'] +
-                        self.vms['master_group'])
+    vm_util.RunThreaded(InstallHadoop,
+                        self.vms['worker_group'] + self.vms['master_group'])
     self.leader = self.vms['master_group'][0]
-    hadoop.ConfigureAndStart(self.leader,
-                             self.vms['worker_group'])
+    hadoop.ConfigureAndStart(
+        self.leader, self.vms['worker_group'], configure_s3=self.cloud == 'AWS')
 
   def SubmitJob(self,
                 jarfile=None,
@@ -388,7 +425,7 @@ class UnmanagedDpbServiceYarnCluster(UnmanagedDpbService):
     """Submit a data processing job to the backend."""
     if job_type != self.HADOOP_JOB_TYPE:
       raise NotImplementedError
-    cmd_list = [posixpath.join(hadoop.HADOOP_BIN, 'hadoop')]
+    cmd_list = [hadoop.HADOOP_CMD]
     # Order is important
     if jarfile:
       cmd_list += ['jar', jarfile]
@@ -440,6 +477,7 @@ class UnmanagedDpbSparkCluster(UnmanagedDpbService):
     self.dpb_service_type = UNMANAGED_SPARK_CLUSTER
     # Set DPB version as Spark version for metadata
     self.dpb_version = 'spark_' + FLAGS.spark_version
+    self.cloud = dpb_service_spec.worker_group.cloud
 
   def _Create(self):
     """Create an un-managed yarn cluster."""
@@ -448,11 +486,16 @@ class UnmanagedDpbSparkCluster(UnmanagedDpbService):
 
     def InstallSpark(vm):
       vm.Install('spark')
+      if self.cloud == 'GCP':
+        hadoop.InstallGcsConnector(vm)
+      if self.cloud == 'AWS':
+        hadoop.InstallS3Connector(vm)
 
     vm_util.RunThreaded(InstallSpark,
                         self.vms['worker_group'] + self.vms['master_group'])
     self.leader = self.vms['master_group'][0]
-    spark.ConfigureAndStart(self.leader, self.vms['worker_group'])
+    spark.ConfigureAndStart(
+        self.leader, self.vms['worker_group'], configure_s3=self.cloud == 'AWS')
 
   def SubmitJob(self,
                 jarfile=None,
@@ -473,7 +516,7 @@ class UnmanagedDpbSparkCluster(UnmanagedDpbService):
         BaseDpbService.SPARK_JOB_TYPE,
     ]:
       raise NotImplementedError
-    cmd = [posixpath.join(spark.SPARK_BIN, 'spark-submit')]
+    cmd = [spark.SPARK_SUBMIT]
     # Order is important
     if classname:
       cmd += ['--class', classname]

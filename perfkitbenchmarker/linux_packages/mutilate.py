@@ -120,6 +120,8 @@ def AptInstall(vm):
   vm.Install('build_tools')
   vm.InstallPackages(APT_PACKAGES)
   vm.RemoteCommand('git clone {0} {1}'.format(GIT_REPO, MUTILATE_DIR))
+  vm.RemoteCommand(
+      f'sed -i "s|int total|long total|g" {MUTILATE_DIR}/mutilate.cc')
   vm.RemoteCommand('cd {0} && sudo scons'.format(MUTILATE_DIR))
 
 
@@ -140,42 +142,45 @@ def GetMetadata():
   return metadata
 
 
-def BuildCmd(server_ip, server_port, options):
+def BuildCmd(server_ip, server_port, num_instances, options):
   """Build base mutilate command in a list."""
-  cmd = [MUTILATE_BIN,
-         '--server=%s:%s' % (server_ip, server_port),
-         '--keysize=%s' % FLAGS.mutilate_keysize,
-         '--valuesize=%s' % FLAGS.mutilate_valuesize,
-         '--records=%s' % FLAGS.mutilate_records] + options
+  server_ips = []
+  for idx in range(num_instances):
+    server_ips.append(f'--server={server_ip}:{server_port + idx}')
+  cmd = [
+      'ulimit -n 32768; ', MUTILATE_BIN,
+      '--keysize=%s' % FLAGS.mutilate_keysize,
+      '--valuesize=%s' % FLAGS.mutilate_valuesize,
+      '--records=%s' % FLAGS.mutilate_records,
+      '--roundrobin' if len(server_ips) > 1 else ''
+  ] + server_ips + options
   if FLAGS.mutilate_protocol == 'binary':
     cmd.append('--binary')
   return cmd
-
-
-def RestartAgent(vm, threads):
-  logging.info('Restarting mutilate remote agent on %s', vm.internal_ip)
-  # Kill existing mutilate agent threads
-  vm.RemoteCommand('pkill -9 mutilate', ignore_failure=True)
-  vm.RemoteCommand(' '.join(
-      ['nohup',
-       MUTILATE_BIN,
-       '--threads=%s' % threads,
-       '--agentmode',
-       '1>/dev/null',
-       '2>/dev/null',
-       '&']))
 
 
 def Load(client_vm, server_ip, server_port):
   """Preload the server with data."""
   logging.info('Loading memcached server.')
   cmd = BuildCmd(
-      server_ip, server_port,
+      server_ip, server_port, 1,
       ['--loadonly'])
   client_vm.RemoteCommand(' '.join(cmd))
 
 
-def Run(vms, server_ip, server_port):
+def RestartAgent(vm, threads):
+  logging.info('Restarting mutilate remote agent on %s', vm.internal_ip)
+  # Kill existing mutilate agent threads
+  vm.RemoteCommand('pkill -9 mutilate', ignore_failure=True)
+  # Make sure have enough file descriptor for the agent process.
+  vm.RemoteCommand(' '.join([
+      'ulimit -n 32768; '
+      'nohup', MUTILATE_BIN,
+      '--threads=%s' % threads, '--agentmode', '&> log', '&'
+  ]))
+
+
+def Run(vms, server_ip, server_port, num_instances):
   """Runs the mutilate benchmark on the vm."""
   samples = []
   master = vms[0]
@@ -210,18 +215,15 @@ def Run(vms, server_ip, server_port):
         for qps in FLAGS.mutilate_qps or [0]:  # 0 indicates peak target QPS.
           runtime_options['qps'] = int(qps) or 'peak'
           remote_agents = ['--agent=%s' % vm.internal_ip for vm in vms[1:]]
-          cmd = BuildCmd(
-              server_ip, server_port,
-              [
-                  '--noload',
-                  '--qps=%s' % qps,
-                  '--time=%s' % FLAGS.mutilate_time,
-                  '--update=%s' % FLAGS.mutilate_ratio,
-                  '--threads=%s' % (
-                      FLAGS.mutilate_measure_threads or thread_count),
-                  '--connections=%s' % connection_count,
-                  '--depth=%s' % depth,
-              ] + remote_agents + measure_flags + additional_flags)
+          cmd = BuildCmd(server_ip, server_port, num_instances, [
+              '--noload',
+              '--qps=%s' % qps,
+              '--time=%s' % FLAGS.mutilate_time,
+              '--update=%s' % FLAGS.mutilate_ratio,
+              '--threads=%s' % (FLAGS.mutilate_measure_threads or thread_count),
+              '--connections=%s' % connection_count,
+              '--depth=%s' % depth,
+          ] + remote_agents + measure_flags + additional_flags)
 
           stdout, _ = master.RemoteCommand(' '.join(cmd))
           metadata = GetMetadata()
@@ -262,8 +264,10 @@ def ParseResults(result, metadata):
     List of sample.Sample objects.
   """
   samples = []
-  misses = regex_util.ExtractGroup(MISS_REGEX, result)
-  metadata['miss_rate'] = float(misses)
+  if FLAGS.mutilate_ratio < 1.0:
+    # N/A for write only workloads.
+    misses = regex_util.ExtractGroup(MISS_REGEX, result)
+    metadata['miss_rate'] = float(misses)
 
   latency_stats = regex_util.ExtractGroup(LATENCY_HEADER_REGEX, result).split()
   # parse latency

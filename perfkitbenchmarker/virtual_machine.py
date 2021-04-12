@@ -309,7 +309,6 @@ class BaseOsMixin(six.with_metaclass(abc.ABCMeta, object)):
     self.bootable_time = None
     self.port_listening_time = None
     self.hostname = None
-    self.is_failed_run = False
 
     # Ports that will be opened by benchmark_spec to permit access to the VM.
     self.remote_access_ports = []
@@ -1253,8 +1252,11 @@ class BaseVirtualMachine(BaseOsMixin, resource.BaseResource):
     """
     return False
 
-  def UpdateInterruptibleVmStatus(self):
+  def UpdateInterruptibleVmStatus(self, is_failed_run=False):
     """Updates the status of the discounted vm.
+
+    Args:
+      is_failed_run: boolean, is the test run already failed.
     """
     # TODO(tohaowu) Set it to pure virtual function after finishing it on all
     # the providers.

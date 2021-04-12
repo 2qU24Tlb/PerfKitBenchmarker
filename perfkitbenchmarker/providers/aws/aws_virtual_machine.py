@@ -45,9 +45,6 @@ from perfkitbenchmarker.providers.aws import util
 from six.moves import range
 
 FLAGS = flags.FLAGS
-flags.DEFINE_enum('aws_credit_specification', None,
-                  ['CpuCredits=unlimited', 'CpuCredits=standard'],
-                  'Credit specification for burstable vms.')
 
 HVM = 'hvm'
 PV = 'paravirtual'
@@ -908,7 +905,7 @@ class AwsVirtualMachine(virtual_machine.BaseVirtualMachine):
                               f'--region={self.region}',
                               f'--allocation-id={self.allocation_id}'])
 
-  def UpdateInterruptibleVmStatus(self):
+  def UpdateInterruptibleVmStatus(self, is_failed_run=False):
     if self.spot_early_termination:
       return
     if hasattr(self, 'spot_instance_request_id'):
@@ -1189,18 +1186,6 @@ class AmazonLinux2BasedAwsVirtualMachine(
   IMAGE_OWNER = AMAZON_LINUX_IMAGE_PROJECT
 
 
-class AmazonLinux1BasedAwsVirtualMachine(
-    AwsVirtualMachine, linux_virtual_machine.AmazonLinux1Mixin):
-  """Class with configuration for AWS Amazon Linux 1 virtual machines."""
-  IMAGE_NAME_FILTER = 'amzn-ami-*-*-*'
-  IMAGE_OWNER = AMAZON_LINUX_IMAGE_PROJECT
-  # IMAGE_NAME_REGEX tightens up the image filter for Amazon Linux to avoid
-  # non-standard Amazon Linux images. This fixes a bug in which we were
-  # selecting "amzn-ami-hvm-BAD1.No.NO.DONOTUSE-x86_64-gp2" as the latest image.
-  IMAGE_NAME_REGEX = (
-      r'^amzn-ami-{virt_type}-\d+\.\d+\.\d+.\d+-{architecture}-{disk_type}$')
-
-
 class Rhel7BasedAwsVirtualMachine(AwsVirtualMachine,
                                   linux_virtual_machine.Rhel7Mixin):
   """Class with configuration for AWS RHEL 7 virtual machines."""
@@ -1225,8 +1210,8 @@ class CentOs7BasedAwsVirtualMachine(AwsVirtualMachine,
   """Class with configuration for AWS CentOS 7 virtual machines."""
   # Documentation on finding the CentOS 7 image:
   # https://wiki.centos.org/Cloud/AWS#x86_64
-  IMAGE_NAME_FILTER = 'CentOS*Linux*7*ENA*'
-  IMAGE_PRODUCT_CODE_FILTER = 'aw0evgkw8e5c1q413zgy5pjce'
+  IMAGE_NAME_FILTER = 'CentOS 7*'
+  IMAGE_OWNER = CENTOS_IMAGE_PROJECT
   DEFAULT_USER_NAME = 'centos'
 
   def _InstallEfa(self):

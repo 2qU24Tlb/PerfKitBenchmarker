@@ -61,6 +61,9 @@ flags.DEFINE_string('managed_db_memory', None,
 flags.DEFINE_integer('managed_db_disk_size', None,
                      'Size of the database disk in GB.')
 flags.DEFINE_string('managed_db_disk_type', None, 'Disk type of the database.')
+flags.DEFINE_integer('managed_db_disk_iops', None,
+                     'Disk iops of the database on AWS io1 disks.')
+
 flags.DEFINE_integer('managed_db_azure_compute_units', None,
                      'Number of Dtus in the database.')
 flags.DEFINE_string('managed_db_tier', None,
@@ -75,12 +78,14 @@ flags.DEFINE_string(
 flags.DEFINE_integer('client_vm_disk_size', None,
                      'Size of the client vm disk in GB.')
 flags.DEFINE_string('client_vm_disk_type', None, 'Disk type of the client vm.')
+flags.DEFINE_integer('client_vm_disk_iops', None,
+                     'Disk iops of the database on AWS for client vm.')
 flags.DEFINE_boolean(
     'use_managed_db', True, 'If true, uses the managed MySql '
     'service for the requested cloud provider. If false, uses '
     'MySql installed on a VM.')
 flags.DEFINE_list(
-    'mysql_flags', '', 'Flags to apply to the implementation of '
+    'db_flags', '', 'Flags to apply to the implementation of '
     'MySQL on the cloud that\'s being used. Example: '
     'binlog_cache_size=4096,innodb_log_buffer_size=4294967295')
 flags.DEFINE_integer(
@@ -313,6 +318,7 @@ class BaseRelationalDb(resource.BaseResource):
         'engine_version': self.spec.engine_version,
         'client_vm_zone': self.spec.vm_groups['clients'].vm_spec.zone,
         'use_managed_db': self.is_managed_db,
+        'instance_id': self.instance_id,
         'client_vm_disk_type':
             self.spec.vm_groups['clients'].disk_spec.disk_type,
         'client_vm_disk_size':
@@ -370,9 +376,9 @@ class BaseRelationalDb(resource.BaseResource):
       raise RelationalDbPropertyNotSet(
           'Machine type of the client VM must be set.')
 
-    if FLAGS.mysql_flags:
+    if FLAGS.db_flags:
       metadata.update({
-          'mysql_flags': FLAGS.mysql_flags,
+          'db_flags': FLAGS.db_flags,
       })
 
     return metadata
@@ -386,6 +392,9 @@ class BaseRelationalDb(resource.BaseResource):
 
     Returns: default version as a string for the given engine.
     """
+
+  def _PostCreate(self):
+    self._ApplyDbFlags()
 
   def _IsReadyUnmanaged(self):
     """Return true if the underlying resource is ready.
@@ -584,9 +593,26 @@ class BaseRelationalDb(resource.BaseResource):
         'mysql %s -e "FLUSH PRIVILEGES;"' %
         self.MakeMysqlConnectionString(use_localhost=True))
 
+  def _ApplyDbFlags(self):
+    """Apply Flags on the database."""
+    if FLAGS.db_flags:
+      if self.is_managed_db:
+        self._ApplyManagedDbFlags()
+      else:
+        if self.spec.engine == MYSQL:
+          self._ApplyMySqlFlags()
+        else:
+          raise NotImplementedError('Flags is not supported on %s' %
+                                    self.spec.engine)
+
+  def _ApplyManagedDbFlags(self):
+    """Apply flags on the managed database."""
+    raise NotImplementedError('Managed Db flags is not supported for %s' %
+                              type(self).__name__)
+
   def _ApplyMySqlFlags(self):
-    if FLAGS.mysql_flags:
-      for flag in FLAGS.mysql_flags:
+    if FLAGS.db_flags:
+      for flag in FLAGS.db_flags:
         cmd = 'mysql %s -e \'SET %s;\'' % self.MakeMysqlConnectionString(), flag
         _, stderr, _ = vm_util.IssueCommand(cmd, raise_on_failure=False)
         if stderr:

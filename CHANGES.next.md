@@ -11,6 +11,7 @@
     strings to support images which have multiple owners e.g. AmazonLinux2 in
     opt-in regions.
 -   Remove Ubuntu1710 from `--os_types`.
+-   Remove Amazon Linux 1 from `--os_types`.
 
 ### New features:
 
@@ -25,6 +26,14 @@
 -   Add Ubuntu 20.04 to AWS, Azure, and GCP providers.
 -   Add support for running DPB Apache Spark benchmarks on PKB provisioned VMs
 -   Add support for AWS gp3 disks.
+-   Add ability to use Intel compiled HPCC binaries with
+    --hpcc_use_intel_compiled_hpl
+-   Add OSU MPI micro-benchmarks benchmark
+-   Add support for setting virtual NIC type for GCP VMs.
+-   Add ability to collect /proc/meminfo data with --collect_meminfo
+-   Add support for setting egress bandwidth tier for GCP VMs.
+-   Add support for Azure Ultra Disk
+-   Add `cloudharmony_network` benchmark
 
 ### Enhancements:
 
@@ -53,7 +62,15 @@
 -   Added support for MySQL 8.0 on VMs and minimal innodb tuning.
 -   Add ability to specify version of Intel MKL with --mkl_version
 -   Added intelmpi.NfsExportIntelDirectory to NFS export /opt/intel
-
+-   Modify cloud_datastore_ycsb benchmark to execute YCSB on the same db entries
+    each run instead of emptying and preloading the db every time. Can set flag
+    google_datastore_repopulate=True to empty & repopulate.
+-   Enhance the cpu metric collection feature for cloud bigtable benchmark: as
+    long as there is a real workload (table loading is not counted), the cpu
+    metrics will be collected.
+-   Support wiring properties into DPB clusters with `--dpb_clusters_properties`
+    in addition to `--dpb_job_properties`.
+-   Add support for GCS and S3 I/O in PKB managed Spark and Hadoop clusters.
 
 ### Bug fixes and maintenance updates:
 
@@ -87,3 +104,6 @@
 -   Limit pip to v20.2.2 for ubuntu1604 and for
     object_storage_service_benchmark.
 -   Switch to using Google Cloud Build for continuous integration.
+-   Fix PrettyPrintStreamPublisher to make "cpu_utilization_per_minute" show up
+    in the PKB results summary for cloud bigtable benchmark.
+-   Added an option to install GCP NCCL plugins.
