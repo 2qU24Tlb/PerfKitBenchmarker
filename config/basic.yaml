@@ -1,0 +1,80 @@
+test_suite:
+  - cloud: AWS
+    globals:
+      machine_type: t2.micro
+      zones: us-east-1a
+    tests:
+      - test: iperf
+        options:
+          iperf_runtime_in_seconds: 30
+      - test: fio
+        options:
+          fio_jobfile: config/AWS/fio.txt
+      - test: coremark
+      - test: ping
+      - test: unixbench
+
+  - cloud: GCP
+    globals:
+      image_project: ubuntu-os-cloud
+      image_family: ubuntu-1604-lts
+      machine_type:
+        cpus: 1
+        memory: 1GiB
+      zone: europe-west3-a
+    tests:
+      - test: iperf
+        options:
+          iperf_runtime_in_seconds: 30
+      - test: fio
+        options:
+          fio_jobfile: config/GCP/fio.txt
+      - test: coremark
+      - test: ping
+      - test: unixbench
+
+  - cloud: Azure
+    globals:
+      machine_type: Standard_A0
+      zones: eastus2
+    tests:
+      - test: iperf
+        options:
+          iperf_runtime_in_seconds: 30
+      - test: fio
+        options:
+          fio_jobfile: config/azure/fio.txt
+      - test: coremark
+      - test: ping
+      - test: unixbench
+
+  - cloud: Rackspace
+    globals:
+      machine_type: General1-1
+      zones: FRA1
+    tests:
+      - test: iperf
+        options:
+          iperf_runtime_in_seconds: 30
+      - test: fio
+        options:
+          fio_jobfile: config/rackspace/fio.txt
+      - test: coremark
+      - test: ping
+      - test: unixbench
+
+  - cloud: AliCloud
+    globals:
+        zones: us-east-1a
+        machine_type: ecs.r6.4xlarge
+        data_disk_type: remote_ssd
+    tests:
+      - test: iperf
+        options:
+          iperf_runtime_in_seconds: 30
+      - test: fio
+        options:
+          fio_jobfile: config/alicloud/fio.txt
+      - test: coremark
+      - test: ping
+      - test: unixbench

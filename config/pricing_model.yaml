@@ -1,0 +1,39 @@
+--- 
+project_id: phileas-1351
+dataset: cloud
+test_suite:
+  - cloud: AWS
+    globals:
+      machine_type: t2.micro
+      cpus: 1
+      memory: 1
+      cost: 0.013
+      unit: Hour
+  - cloud: GCP
+    globals:
+      machine_type: custom 
+      cpus: 1
+      memory: 1
+      cost: 0.04
+      unit: Day
+  - cloud: Rackspace
+    globals:
+      machine_type: 'general1:1'
+      cpus: 1
+      memory: 1
+      disk: 20
+      disk_type: SSD
+      bandwidth: 200
+      cost: 0.032 
+      unit: Hour
+  - cloud: Azure
+    globals:
+      machine_type: ExtraSmall
+      cpus: 1
+      memory: 0.75
+      disk: 20
+      disk_type: HDD
+      cost: 0.020
+      unit: Hour
+  - cloud: Openstack
+    globals:

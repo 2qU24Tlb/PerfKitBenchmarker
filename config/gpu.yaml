@@ -1,0 +1,79 @@
+--- 
+results_location: ../etc/runs/
+project_id: phileas-1351
+dataset: cloud
+email_recipients:
+  - d.kheyman@gmail.com
+  - rashimgreat@gmail.com
+email_from: rbcphileas@gmail.com
+test_suite:
+  - cloud: AWS
+    globals:
+      image: ami-9f086de0
+      machine_type: p3.2xlarge
+      default_timeout: 600
+      zones: us-east-1b
+    tests:
+      - test: iperf
+        options:
+          iperf_runtime_in_seconds: 30
+      - test: fio
+        options:
+          fio_jobfile: ../lib/providers/AWS/config/fio.txt
+      - test: coremark
+      - test: ping
+      - test: unixbench
+      - test: tensorflow
+        options:
+          tf_models: "inception3"
+  - cloud: GCP
+    globals:
+      gpu_type: v100
+      gpu_count: 1
+      machine_type:
+        cpus: 8
+        memory: 52GiB
+      gce_boot_disk_size: 200
+      zones: us-central1-b
+    tests:
+      - test: iperf
+        options:
+          iperf_runtime_in_seconds: 30
+      - test: fio
+        options:
+          fio_jobfile: ../lib/providers/GCP/config/fio.txt
+      - test: coremark
+      - test: ping
+      - test: unixbench
+        options:
+          unixbench_all_cores: True
+  - cloud: Azure
+    globals:
+      machine_type: Standard_NC6s_v3
+      zones: eastus
+    tests:
+      - test: iperf
+        options:
+          iperf_runtime_in_seconds: 30
+      - test: fio
+        options:
+          fio_jobfile: ../lib/providers/Azure/config/fio.txt
+      - test: coremark
+      - test: ping
+      - test: unixbench
+  - cloud: AliCloud
+    globals:
+        aliyuncli_path: aliyun
+        zones: us-east-1b
+        machine_type: ecs.gn5-c4g1.2xlarge 
+        ali_system_disk_type: cloud_ssd
+    tests:
+      - test: iperf
+        options:
+          iperf_runtime_in_seconds: 30
+      - test: fio
+        options:
+          fio_jobfile: ../lib/providers/AliCloud/config/fio.txt
+      - test: coremark
+      - test: ping
+      - test: unixbench

@@ -1,0 +1,76 @@
+--- 
+results_location: ../etc/runs/
+project_id: phileas-1351
+dataset: cloud
+email_recipients:
+  - d.kheyman@gmail.com
+  - rashimgreat@gmail.com
+email_from: rbcphileas@gmail.com
+test_suite:
+  - cloud: AWS
+    globals:
+      image: ami-80861296    
+      machine_type: p3.2xlarge
+      default_timeout: 600
+      zones: us-east-1b
+      aws_boot_disk_size: 200
+    tests:
+      - test: iperf
+        options:
+          iperf_runtime_in_seconds: 30
+      - test: fio
+        options:
+          fio_jobfile: ../lib/providers/AWS/config/fio.txt
+      - test: coremark
+      - test: ping
+      - test: unixbench
+      - test: tensorflow
+        options:
+          tf_models: lenet, resnet50, vgg16, inception3
+          tf_batch_sizes: 128
+  - cloud: GCP
+    globals:
+      image_project: ubuntu-os-cloud
+      image_family: ubuntu-1604-lts
+      gpu_type: v100
+      gpu_count: 1
+      machine_type:
+        cpus: 8
+        memory: 52GiB
+      gce_boot_disk_size: 200
+      zones: us-west1-a
+    tests:
+      - test: iperf
+        options:
+          iperf_runtime_in_seconds: 30
+      - test: fio
+        options:
+          fio_jobfile: ../lib/providers/GCP/config/fio.txt
+      - test: coremark
+      - test: ping
+      - test: unixbench
+        options:
+          unixbench_all_cores: True
+      - test: tensorflow
+        options:
+          tf_models: lenet, resnet50, vgg16, inception3
+          tf_batch_sizes: 128
+  - cloud: Azure
+    globals:
+      machine_type: Standard_NC6s_v3
+      zones: southcentralus
+    tests:
+      - test: iperf
+        options:
+          iperf_runtime_in_seconds: 30
+      - test: fio
+        options:
+          fio_jobfile: ../lib/providers/Azure/config/fio.txt
+      - test: coremark
+      - test: ping
+      - test: unixbench
+      - test: tensorflow
+        options:
+          tf_models: lenet, resnet50, vgg16, inception3
+          tf_batch_sizes: 128
+

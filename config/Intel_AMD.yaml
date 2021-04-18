@@ -1,0 +1,150 @@
+--- 
+results_location: ../etc/runs/
+project_id: phileas-1351
+dataset: cloud
+email_recipients:
+  - d.kheyman@gmail.com
+  - rashimgreat@gmail.com
+email_from: rbcphileas@gmail.com
+test_suite:
+#  - cloud: AWS
+#    globals:
+#      image: ami-9f086de0
+#      machine_type: m5a.large
+#      default_timeout: 600
+#      zones: us-east-1a
+#    tests:
+#      - test: iperf
+#        options:
+#          iperf_runtime_in_seconds: 30
+#      - test: fio
+#        options:
+#          fio_jobfile: ../lib/providers/AWS/config/fio.txt
+#      - test: coremark
+#      - test: ping
+#      - test: unixbench
+#  - cloud: AWS0
+#    globals:
+#      image: ami-9f086de0
+#      machine_type: m5.large
+#      default_timeout: 600
+#      zones: us-east-1a
+#    tests:
+#      - test: iperf
+#        options:
+#          iperf_runtime_in_seconds: 30
+#      - test: fio
+#        options:
+#          fio_jobfile: ../lib/providers/AWS/config/fio.txt
+#      - test: coremark
+#      - test: ping
+#      - test: unixbench
+#  - cloud: AWS2
+#    globals:
+#      image: ami-9f086de0
+#      machine_type: m5n.large
+#      default_timeout: 600
+#      zones: us-east-1a
+#    tests:
+#      - test: iperf
+#        options:
+#          iperf_runtime_in_seconds: 30
+#      - test: fio
+#        options:
+#          fio_jobfile: ../lib/providers/AWS/config/fio.txt
+#      - test: coremark
+#      - test: ping
+#      - test: unixbench
+  - cloud: AWS3
+    globals:
+      image: ami-036ede09922dadc9b
+      machine_type: a1.large
+      default_timeout: 600
+      zones: us-east-1a
+    tests:
+      - test: iperf
+        options:
+          iperf_runtime_in_seconds: 30
+      - test: fio
+        options:
+          fio_jobfile: ../lib/providers/AWS/config/fio.txt
+      - test: coremark
+      - test: ping
+      - test: unixbench
+#  - cloud: AWS4
+#    globals:
+#      image: ami-9f086de0
+#      machine_type: t2.medium
+#      default_timeout: 600
+#      zones: us-east-1a
+#    tests:
+#      - test: iperf
+#        options:
+#          iperf_runtime_in_seconds: 30
+#      - test: fio
+#        options:
+#          fio_jobfile: ../lib/providers/AWS/config/fio.txt
+#      - test: coremark
+#      - test: ping
+#      - test: unixbench
+#  - cloud: AWS5
+#    globals:
+#      image: ami-9f086de0
+#      machine_type: t3.medium
+#      default_timeout: 600
+#      zones: us-east-1a
+#    tests:
+#      - test: iperf
+#        options:
+#          iperf_runtime_in_seconds: 30
+#      - test: fio
+#        options:
+#          fio_jobfile: ../lib/providers/AWS/config/fio.txt
+#      - test: coremark
+#      - test: ping
+#      - test: unixbench
+#  - cloud: AWS6
+#    globals:
+#      image: ami-9f086de0
+#      machine_type: t3a.medium
+#      default_timeout: 600
+#      zones: us-east-1a
+#    tests:
+#      - test: iperf
+#        options:
+#          iperf_runtime_in_seconds: 30
+#      - test: fio
+#        options:
+#          fio_jobfile: ../lib/providers/AWS/config/fio.txt
+#      - test: coremark
+#      - test: ping
+#      - test: unixbench
+#  - cloud: Azure
+#    globals:
+#      machine_type: Standard_L8s_v2
+#      zones: eastus2
+#    tests:
+#      - test: iperf
+#        options:
+#          iperf_runtime_in_seconds: 30
+#      - test: fio
+#        options:
+#          fio_jobfile: ../lib/providers/Azure/config/fio.txt
+#      - test: coremark
+#      - test: ping
+#      - test: unixbench
+#  - cloud: Azure0
+#    globals:
+#      machine_type: Standard_L8s
+#      zones: eastus2
+#    tests:
+#      - test: iperf
+#        options:
+#          iperf_runtime_in_seconds: 30
+#      - test: fio
+#        options:
+#          fio_jobfile: ../lib/providers/Azure/config/fio.txt
+#      - test: coremark
+#      - test: ping
+#      - test: unixbench
+
