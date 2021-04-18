@@ -31,7 +31,7 @@ flags.DEFINE_string('tf_gpu_pip_package', 'tensorflow-gpu==1.12.0',
                     'TensorFlow GPU pip package to install. By default, PKB '
                     'will install tensorflow-gpu==1.12 when using GPUs.')
 flags.DEFINE_string(
-    't2t_pip_package', 'tensor2tensor==1.7',
+    't2t_pip_package', 'tensor2tensor==1.7 rsa==3.1.4',
     'Tensor2Tensor pip package to install. By default, PKB '
     'will install tensor2tensor==1.7 .')
 flags.DEFINE_string('tf_cnn_benchmarks_branch',
@@ -101,7 +101,7 @@ def Install(vm):
   vm.RemoteCommand('sudo pip install --upgrade %s' % tf_pip_package,
                    should_log=True)
   vm.RemoteCommand(
-      'sudo pip install --upgrade %s' % FLAGS.t2t_pip_package, should_log=True)
+      'sudo pip install --upgrade %s' % FLAGS.t2t_pip_package, should_log=True, suppress_warning=True)
   vm.InstallPackages('git')
   _, _, retcode = vm.RemoteHostCommandWithReturnCode(
       'test -d benchmarks', ignore_failure=True, suppress_warning=True)

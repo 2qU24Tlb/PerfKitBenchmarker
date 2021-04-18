@@ -27,8 +27,8 @@ FLAGS = flags.FLAGS
 
 def AptInstall(vm):
   """Installs the cudnn package on the VM."""
-  if not cuda_toolkit.CheckNvidiaSmiExists(vm):
-    raise Exception('CUDA Toolkit is a prerequisite for installing CUDNN.')
+  # if not cuda_toolkit.CheckNvidiaSmiExists(vm):
+    # raise Exception('CUDA Toolkit is a prerequisite for installing CUDNN.')
   if FLAGS.cuda_toolkit_version == '9.0':
     cudnn_version = CUDNN_7_4_9
   elif FLAGS.cuda_toolkit_version == '10.0':
@@ -40,6 +40,9 @@ def AptInstall(vm):
   # dirmngr is needed for getting the certificate from network
   vm.RemoteCommand(
       'sudo apt-get install -y --no-install-recommends dirmngr',
+      should_log=True)
+  vm.RemoteCommand(
+      'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gnupg-curl',
       should_log=True)
   vm.RemoteCommand(
       'sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/'

@@ -236,7 +236,7 @@ class RackspaceVirtualMachine(virtual_machine.BaseVirtualMachine):
   def _CreateInstance(self):
     """Generates and execute command for creating a Rackspace VM."""
     with tempfile.NamedTemporaryFile(dir=vm_util.GetTempDir(),
-                                     prefix='user-data') as tf:
+                                     prefix='user-data', mode='w') as tf:
       with open(self.ssh_public_key) as f:
         public_key = f.read().rstrip('\n')
       tf.write(CLOUD_CONFIG_TEMPLATE.format(self.user_name, public_key))

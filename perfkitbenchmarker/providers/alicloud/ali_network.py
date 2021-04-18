@@ -227,7 +227,7 @@ class AliFirewall(network.BaseFirewall):
           'ecs',
           'AuthorizeSecurityGroup',
           '--IpProtocol ICMP',
-          '--PortRange -1/-1',
+          '--PortRange=-1/-1',
           '--SourceCidrIp 0.0.0.0/0',
           '--RegionId %s' % vm.region,
           '--SecurityGroupId %s' % vm.group_id]
